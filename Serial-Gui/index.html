@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Control</title>
+    <style>
+      table, td, th {  
+        border: 1px solid #ddd;
+      }
+
+      table {
+        border-collapse: collapse;
+      }
+
+      th, td {
+        padding: 5px;
+      }
+      .container {
+        display: grid;
+        grid-template-columns: 50% 50%;
+      }
+      .c1{
+        grid-column-start: 1;
+        grid-column-end: 1;
+      }
+      .c2{
+        grid-column-start: 2;
+        grid-column-end: 2;
+      }
+    </style>
+  </head>
+  <body class="container">
+    <div class="c1">
+      <table>
+        <tr>
+          <th>
+            Volt meter
+          </th>
+          <td>
+            <form id="serial" onsubmit="connectVolt();return false;" action="#">
+              <select id="portselect"></select><button onclick="refreshPorts()">↻</button><input type="submit" value="Connect">
+              <select id="baudrate">
+                <option value="300">4800</option>
+                <option value="600">2400</option>
+                <option value="1200">4800</option>
+                <option value="2400">2400</option>
+                <option value="4800">4800</option>
+                <option value="9600" >9600</option>
+                <option value="19200"selected>19200</option>
+              </select>
+            </form>
+          </td>
+        </tr>
+        <tr>
+          <th>
+            Power Supply
+          </th>
+          <td>
+            <form id="serial2" onsubmit="connectPower();return false;" action="#">
+              <select id="portselect"></select><button onclick="refreshPorts()">↻</button><input type="submit" value="Connect">
+              <select id="baudrate">
+                <option value="300">4800</option>
+                <option value="600">2400</option>
+                <option value="1200">4800</option>
+                <option value="2400">2400</option>
+                <option value="4800">4800</option>
+                <option value="9600" >9600</option>
+                <option value="19200"selected>19200</option>
+              </select>
+            </form>
+          </td>
+        </tr>
+        <tr>
+          <th>Lock-in</th>
+          <td>
+            <button id="connectLock" onclick="connectLock()">Connect</button>
+          </td>
+        </tr>
+        <tr>
+          <th>RF source</th>
+          <td>
+            <button id="connectRF" onclick="connectRF()">Connect</button>
+          </td>
+        </tr>
+      </table>
+      
+      <table>
+        <tr><th>Voltage:</th><td id="voltage">NA</td></tr>
+        <tr><th>Lock-in X:</th><td id="magX">NA</td></tr>
+        <tr><th>Lock-in Y:</th><td id="magY">NA</td></tr>
+        <tr><th>Poll interval:</th><td><input type="number" id="poll" value="1" step="0.01"></td></tr>
+      </table>
+      <table>
+        <tr><th colspan=3>Power Supply</th></tr>
+        <tr><th>Current:</th><td><input type="number" id="iset" value="1" step="0.01"></td><td><button onclick="currentSet(parseFloat(document.getElementById('iset').value));">Send</button></td></tr>
+        <tr><th>Voltage:</th><td><input type="number" id="vset" value="10" step="0.01"></td><td><button onclick="voltageSet(parseFloat(document.getElementById('vset').value));">Send</button></td></tr>
+        <tr><td><button onclick="powOn();">On</button></td><td><button onclick="powOff();">Off</button></td></tr>
+      </table>
+      <table>
+        <tr><th colspan=3>RF Source</th></tr>
+        <tr><th>Frequency:</th><td><input type="number" id="freq" value="100000" step="1"></td><td><button onclick="freqSet(parseFloat(document.getElementById('freq').value));">Send</button></td></tr>
+        <tr><th>Amplitude:</th><td><input type="number" id="dbm" value="0" step="1"></td><td><button onclick="dbmSet(parseFloat(document.getElementById('dbm').value));">Send</button></td></tr>
+        <tr><td><button onclick="rfOn();">On</button></td><td><button onclick="rfOff();">Off</button></td></tr>
+      </table>
+      <table>
+      <form onsubmit="addToQueue();return false;" id="program" action="#">
+        <br>
+        Program:
+        <br>
+        <textarea rows="" cols="" name="program">empty</textarea>
+        <br>
+        <input type="submit" value="GO">
+      </form>
+    </div>
+	<div class="c2">
+	  <button onclick="StartLogging()">Start/Clear Logging</button>
+	  <button onclick="StopLogging();">Stop Logging</button>
+	  <button onclick="var fname = dialog.showSaveDialogSync(); if(fname){SaveLogs(fname);}">Save Logs</button>
+	  <div id="PlotDiv">
+	  </div>
+	</div>
+    <script src="./renderer.js"></script>
+  </body>
+</html>
