@@ -19,6 +19,8 @@ var nanoRedi = false;
 var poweConnected = false;
 var powePort = undefined;
 var poweQueue = [];
+var powePolar = 1;
+var lastVoltage = undefined;
 
 var comQueue = [];
 var comWaiting = false;
@@ -53,11 +55,15 @@ function check(){
   }
 }
 function currentSet(arg){
-  comQueue.push(function(){writePower('iset',arg);lastCurrent = arg;check();}); 
+  comQueue.push(function(){writePower('iset',arg);check();}); 
   check();
 }
 function voltageSet(arg){
-  comQueue.push(function(){writePower('vset',arg);check();}); 
+  comQueue.push(function(){writePower('vset',arg);lastVoltage = arg;check();}); 
+  check();
+}
+function polaritySet(arg){
+  comQueue.push(function(){writePower(arg==1?"+":arg==-1?"-":"t");check();}); 
   check();
 }
 function powOn(){
@@ -132,30 +138,54 @@ function refreshPorts(){
   });
 }
 function writePower(com,arg){
+  if(com == "iset"){
+	if(Math.sign(lastCurrent)!=Math.sign(arg)){
+		writePower("t");
+	}
+    lastCurrent = arg;
+  }
+  else if(com == "vset"){
+	if(Math.sign(lastVoltage)!=Math.sign(arg)){
+		writePower("t");
+	}
+	lastVoltage = arg;
+  }
+  else if(com == "+"){
+	powePolar = 1;
+  }
+  else if(com == "-"){
+	powePolar = -1;
+  }
+  else if(com == "t"){
+	powePolar *= -1;
+  }
   var addr = 0x01;
   var codes = {
     "off": 0x20,
     "on":  0x20,
     "vset":0x21,
     "iset":0x22,
-    "p+":0x24,
-    "p-":0x24
+    "+":0x24,
+    "-":0x24,
+	"t":0x24
   };
   var lengths = {
     "off": 1,
     "on":  1,
     "vset":2,
     "iset":2,
-    "p+":2,
-    "p-":2
+    "+":2,
+    "-":2,
+	"t":2
   };
   var msg = {
     "off": 0,
     "on":  1,
     "vset":arg*100,
     "iset":arg*100,
-    "p+":((64&0xFF)<<8)|((0xFF&2)),
-    "p-":((0&0xFF)<<8)|((0xFF&1))
+    "+":((0&0xFF)<<8)|((0xFF&0)),
+    "-":((1&0xFF)<<8)|((0xFF&1)),
+    "t":((2&0xFF)<<8)|((0xFF&2)),
   };
   var hdr = new Uint8Array(lengths[com]+5);
   hdr[0] = 0xAA;
