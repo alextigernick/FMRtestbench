@@ -222,10 +222,12 @@ function connectRF(){
       rfConnected = true;
 
       rfIntf = rfPort.interface(0);
-      if (rfIntf.isKernelDriverActive()){
-        rfIntf.detachKernelDriver()
-        console.log("Detached kernel driver for RF source")
-      }
+	  if(!navigator["userAgent"].toLowerCase().includes("windows")){
+		  if (rfIntf.isKernelDriverActive()){
+			rfIntf.detachKernelDriver()
+			console.log("Detached kernel driver for RF source")
+		  }
+	  }
       rfIntf.claim();
       askRF("*IDN?\n");
       document.getElementById("connectRF").innerHTML = "Disconnect";
