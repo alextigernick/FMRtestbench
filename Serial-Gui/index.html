@@ -94,7 +94,7 @@
         <tr><th colspan=3>Power Supply</th></tr>
         <tr><th>Current:</th><td><input type="number" id="iset" value="1" step="0.01"></td><td><button onclick="currentSet(parseFloat(document.getElementById('iset').value));">Send</button></td></tr>
         <tr><th>Voltage:</th><td><input type="number" id="vset" value="10" step="0.01"></td><td><button onclick="voltageSet(parseFloat(document.getElementById('vset').value));">Send</button></td></tr>
-        <tr><td><button onclick="powOn();">On</button></td><td><button onclick="powOff();">Off</button></td><td><button onclick="polaritySet(0);">Toggle Polarity</button></td><</tr>
+        <tr><td><button onclick="powOn();">On</button></td><td><button onclick="powOff();">Off</button></td><td><button onclick="polaritySet(0);">Toggle Polarity</button></td></tr>
       </table>
       <table>
         <tr><th colspan=3>RF Source</th></tr>
@@ -113,11 +113,79 @@
       </form>
     </div>
 	<div class="c2">
+	<form id="plotsettings">
+	  <table>
+	  <tr><th>X</th><th>Y</th></tr>
+	  <tr>
+	  <td>
+		  <input type="radio" id="t" name="xselect" value="0">
+		  <label for="t">t</label><br>
+		  Lock-in<br>
+		  <input type="radio" id="x" name="xselect" value="1">
+		  <label for="x">x</label><br>
+		  <input type="radio" id="y" name="xselect" value="2">
+		  <label for="y">y</label><br>
+		  
+		  <input type="radio" id="mag" name="xselect" value="-1">
+		  <label for="mag">mag</label><br>
+		  <input type="radio" id="pha" name="xselect" value="-2">
+		  <label for="pha">phase</label><br>
+		  NVM<br>
+		  <input type="radio" id="v" name="xselect" value="3">
+		  <label for="v">Voltage</label><br>
+		  Power<br>
+		  <input type="radio" id="i" name="xselect" value="4">
+		  <label for="i">current</label><br>
+		  RF Source<br>
+		  <input type="radio" id="freq" name="xselect" value="5">
+		  <label for="freq">Frequency</label><br>
+		  <input type="radio" id="dbm" name="xselect" value="6">
+		  <label for="dbm">dBm</label><br>
+	  </td>
+	  <td>
+		  <input type="checkbox" id="yt" name="yselect" value="0">
+		  <label for="yt">t</label>
+		  <input type="number" id="ytscale" name="yscale" value="1"><br>
+		  Lock-in<br>
+		  <input type="checkbox" id="yx" name="yselect" value="1">
+		  <label for="yx">x</label>
+		  <input type="number" id="yxscale" name="yscale" value="1"><br>
+		  <input type="checkbox" id="yy" name="yselect" value="2">
+		  <label for="yy">y</label>
+		  <input type="number" id="yyscale" name="yscale" value="1"><br>
+		  
+		  <input type="checkbox" id="ymag" name="yselect" value="-1">
+		  <label for="ymag">mag</label>
+		  <input type="number" id="ymagscale" name="yscale" value="1"><br>
+		  <input type="checkbox" id="ypha" name="yselect" value="-2">
+		  <label for="ypha">phase</label>
+		  <input type="number" id="yphascale" name="yscale" value="1"><br>
+		  NVM<br>
+		  <input type="checkbox" id="yv" name="yselect" value="3">
+		  <label for="yv">Voltage</label>
+		  <input type="number" id="yvscale" name="yscale" value="1"><br>
+		  Power<br>
+		  <input type="checkbox" id="yi" name="yselect" value="4">
+		  <label for="yi">current</label>
+		  <input type="number" id="yiscale" name="yscale" value="1"><br>
+		  RF Source<br>
+		  <input type="checkbox" id="yfreq" name="yselect" value="5">
+		  <label for="yfreq">Frequency</label>
+		  <input type="number" id="yfreqscale" name="yscale" value="1"><br>
+		  <input type="checkbox" id="ydbm" name="yselect" value="6">
+		  <label for="ydbm">dBm</label>
+		  <input type="number" id="ydbmscale" name="yscale" value="1"><br>
+	  </td>
+	  </tr></table>
+	</form>
+	  
+	  <input type="submit" value="Submit">
 	  <button onclick="StartLogging()">Start/Clear Logging</button>
 	  <button onclick="StopLogging();">Stop Logging</button>
 	  <button onclick="var fname = dialog.showSaveDialogSync(); if(fname){SaveLogs(fname);}">Save Logs</button>
 	  <div id="PlotDiv">
 	  </div>
+	  
 	</div>
     <script src="./renderer.js"></script>
   </body>

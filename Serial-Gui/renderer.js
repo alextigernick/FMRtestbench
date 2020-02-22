@@ -47,7 +47,7 @@ var last = [];
 var logging = false;
 var startTime = 0;
 function setupLast(){
-  last = [new Date().getTime(),"","","",currentPowered?lastCurrent:0,rfPowered?lastFreq:0,rfPowered?lastdbm:0];//time,x,y,voltage,current,freq,dbm
+  last = [((new Date().getTime())-startTime)/1000,"","","",currentPowered?lastCurrent:0,rfPowered?lastFreq:0,rfPowered?lastdbm:0];//time,x,y,voltage,current,freq,dbm
 }
 function check(){
   if (comQueue.length && !comWaiting){
@@ -159,6 +159,7 @@ function writePower(com,arg){
   else if(com == "t"){
 	powePolar *= -1;
   }
+  arg = Math.abs(arg);
   var addr = 0x01;
   var codes = {
     "off": 0x20,
@@ -403,8 +404,9 @@ setTimeout(parseQueues, 20);
 function StartLogging(){
 	logging = true;
 	logs = [];
+	startTime = new Date().getTime();
 	setupLast();
-	startTime = last[0];
+	
 }
 function StopLogging(){
 	logging = false;
@@ -426,7 +428,6 @@ function poll(){
   if(logging){
     logs.push(last);
     setupLast();
-    plotLogs();
   }
   if(nanoConnected){
     if(!nanoRedi){
@@ -446,22 +447,61 @@ function poll(){
 }
 setTimeout(poll, parseFloat(document.getElementById("poll").value)*1000);
 function plotLogs(){
-  var data = [{
-    x: logs.map(function(datum){return datum[4];}),
-    y: logs.map(function(datum){return Math.sqrt(Math.pow(datum[2],2)+Math.pow(datum[1],2))}),
-    type: 'scatter',//time,x,y,voltage,current,freq,dbm
-    mode: 'markers',
-    name: 'mag'
-  },
-  {
-    x: logs.map(function(datum){return datum[4]}),
-    y: logs.map(function(datum){return Math.atan2(datum[2],datum[1])}),
-    mode: 'markers',
-    type: 'scatter',
-    name: 'phase'
-  }];
+	var labels = ["t","x","y","NVM","i","freq","dbm"];
+	var plotX = parseInt(document.forms.plotsettings.xselect.value);
+	if (plotX >= 0) {
+		plotX = logs.map(function(datum){return datum[plotX];});
+	}
+	else if(plotX == -1) {
+		plotX = logs.map(function(datum){return Math.sqrt(Math.pow(datum[2],2)+Math.pow(datum[1],2))});
+	}
+	else {
+		plotX = logs.map(function(datum){return Math.atan2(datum[2],datum[1])});
+	}
+	var yPlotFields = [];
+	for (const ele in document.forms.plotsettings.yselect){
+		if (document.forms.plotsettings.yselect[ele].checked){
+			yPlotFields.push([parseInt(document.forms.plotsettings.yselect[ele].value),parseFloat(document.forms.plotsettings.yscale[ele].value)]);
+		}
+	}
+	
+	var data = [];
+	for (const ele in yPlotFields){
+		if (yPlotFields[ele][0] > -1) {
+			data.push(
+			{
+				x: plotX,
+				y: logs.map(function(datum){return yPlotFields[ele][1]*datum[yPlotFields[ele][0]];}),
+				type: 'scatter',//time,x,y,voltage,current,freq,dbm
+				//mode: 'markers',
+				name: labels[yPlotFields[ele][0]]
+		    });
+		}
+		else if(yPlotFields[ele][1] == -1) {
+			data.push(
+			{
+				x: plotX,
+				y: logs.map(function(datum){return yPlotFields[ele][1]*Math.sqrt(Math.pow(datum[2],2)+Math.pow(datum[1],2))}),
+				type: 'scatter',//time,x,y,voltage,current,freq,dbm
+				//mode: 'markers',
+				name: "mag"
+		    });
+		}
+		else {
+			data.push(
+			{
+				x: plotX,
+				y: logs.map(function(datum){return yPlotFields[ele][1]*Math.atan2(datum[2],datum[1])}),
+				type: 'scatter',//time,x,y,voltage,current,freq,dbm
+				//mode: 'markers',
+				name: "phase"
+		    });
+		}
+	}
 	Plotly.newPlot('PlotDiv', data);
+	setTimeout(plotLogs, 5000);
 }
+setTimeout(plotLogs, 5000);
 function incomingVolt(line){
   document.getElementById("voltage").innerHTML = line;
   last[3] = line;
