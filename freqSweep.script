@@ -1,0 +1,15 @@
+rfOn();
+var _startingFreq = 1000000000;
+var _endingFreq   = 10000000000;
+var _numSteps     = 10000;
+var _delay        = 10;
+dbmSet(10);
+freqSet(_startingFreq);
+delay(20000);
+startLog();
+for(var i = _startingFreq; i <= _endingFreq; i += (_endingFreq-_startingFreq)/_numSteps){
+    delay(_delay);
+    freqSet(i);
+}
+endLog("freqSweep.csv");
+

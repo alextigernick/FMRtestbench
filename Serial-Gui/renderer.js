@@ -31,6 +31,12 @@ var lockIntf = undefined;
 var lockQueue = [];
 var lockRequests = [];
 
+var gaussConnected = false;
+var gaussPort = undefined;
+var gaussIntf = undefined;
+var gaussQueue = [];
+var gaussRequests = [];
+
 var rfConnected = false;
 var rfPort = undefined;
 var rfIntf = undefined;
@@ -262,6 +268,38 @@ function connectRF(){
       rfIntf.claim();
       askRF("*IDN?\n");
       document.getElementById("connectRF").innerHTML = "Disconnect";
+    }
+  }
+  else{
+    alert("Not implemented, close the program to disconnect");
+    /*if (lockIntf.endpoints[1].pollActive)
+      lockIntf.endpoints[1].stopPoll()
+    lockIntf.release(true,function(err){console.log(err)});
+    lockPort.close();
+    lockPort = undefined;
+    lockConnected = false;
+    document.getElementById("connectLock").innerHTML = "Connect";*/
+  }
+}
+function connectGauss(){
+  if (!gaussConnected){//
+    gaussPort = usb.findByIds(0x16a2, 0x5100)
+    if (gaussPort == undefined){
+      alert("Could not find lock-in");
+    }
+    else{
+      gaussPort.open();
+      gaussConnected = true;
+      gaussIntf = gaussPort.interface(0);
+      gaussIntf.claim();
+      gaussIntf.endpoints[0].on('data', function (data) {
+          gaussQueue.push(data);
+      });
+      gaussIntf.endpoints[0].on('error', function (error) {
+        alert(error);
+      });
+      gaussIntf.endpoints[0].startPoll();
+      document.getElementById("connectGauss").innerHTML = "Disconnect";
     }
   }
   else{

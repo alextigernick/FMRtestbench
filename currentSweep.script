@@ -1,0 +1,19 @@
+powOn();
+rfOn();
+var _startingCurrent = -5;
+var _endingCurrent   = 0;
+var _numSteps     = 10000;
+var _delay        = 10;
+dbmSet(10);
+freqSet(5000000000);
+voltageSet(30);
+currentSet(_startingCurrent);
+delay(20000);
+startLog();
+for(var i = _startingCurrent; i <= _endingCurrent; i += (_endingCurrent-_startingCurrent)/_numSteps){
+    delay(_delay);
+    currentSet(i);
+}
+endLog("currentSweep.csv");
+rfOff();
+powOff();
