@@ -298,7 +298,7 @@ function connectGauss(){
       gaussIntf.endpoints[0].on('error', function (error) {
         alert(error);
       });
-      gaussIntf.endpoints[0].startPoll();
+      //gaussIntf.endpoints[0].startPoll();
       document.getElementById("connectGauss").innerHTML = "Disconnect";
     }
   }
