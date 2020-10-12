@@ -81,7 +81,7 @@ class NVmeter2182A extends Instrument {
             return console.log('Error: ', err.message)
           }
           else {
-            parser = new Readline()
+            let parser = new Readline()
             this.port.pipe(parser)
             parser.on('data', (line => this.parseLine(line.replace(/(\r\n|\n|\r)/gm, ""))).bind(this));
 
@@ -221,7 +221,7 @@ class PowerHAP03_30D extends Instrument {
             return console.log('Error: ', err.message)
           }
           else {
-            parser = new ByteLength({ length: 1 })
+            let parser = new ByteLength({ length: 1 })
             this.port.pipe(parser)
             parser.on('data', (line => this.parseLine(line).bind(this)));
 
@@ -462,7 +462,6 @@ class RF845 extends Instrument {
         this.port.open();
         this.connected = true;
         this.interface = this.port.interface(0);
-
         if (!navigator["userAgent"].toLowerCase().includes("windows")) {
           if (this.interface.isKernelDriverActive()) {
             this.interface.detachKernelDriver()
@@ -471,7 +470,7 @@ class RF845 extends Instrument {
         }
         this.interface.claim();
         this.ask("*IDN?\n");
-        this.serialRow.getElementsByTagName("connect").textContent = "Disconnect";
+        this.serialRow.getElementsByTagName("Button").connect.textContent = "Disconnect";
       }
     }
     else {
@@ -485,11 +484,16 @@ class RF845 extends Instrument {
       document.getElementById("connectLock").innerHTML = "Connect";*/
     }
   }
+  
+  ask(message){
+	this.rawWrite(message);
+	this.rawRead();
+  }
   updateText() {
     this.readoutRow.getElementsByTagName("input").freq.value = this.readout["freq"];
     this.readoutRow.getElementsByTagName("input").power.value = this.readout["power"];
-    this.readoutRow.getElementsByTagName("button").on.textContent = this.on ? "On" : "Off";
-    if (this.on) {
+    this.readoutRow.getElementsByTagName("button").on.textContent = this.readout["on"] ? "On" : "Off";
+    if (this.readout["on"]) {
       this.readoutRow.getElementsByTagName("button").on.style.backgroundColor = "green";
     }
     else {
@@ -507,12 +511,12 @@ class RF845 extends Instrument {
   }
 
   setFreq(arg) {
-    this.rawWrite(":SOUR:FREQ " + arg.toFixed(1) + "\n");
+    this.rawWrite(":SOUR:FREQ " + Number.parseFloat(arg).toFixed(1) + "\n");
     this.readout["freq"] = arg;
     this.updateText();
   }
   setdBm(arg) {
-    this.rawWrite(":SOUR:POW " + arg.toFixed(1) + "\n");
+    this.rawWrite(":SOUR:POW " + Number.parseFloat(arg).toFixed(1) + "\n");
     this.readout["power"] = arg;
     this.updateText();
   }
@@ -622,7 +626,7 @@ class RF845 extends Instrument {
         const cc = document.createElement("button");
         cc.textContent = "On";
         cc.id = "on";
-        cc.onclick = function () { if (this.on) { this.turnOff(); } else { this.turnOn(); } }.bind(this);
+        cc.onclick = function () { if (this.readout["on"]) { this.turnOff(); } else { this.turnOn(); } }.bind(this);
         const cell = this.readoutRow.insertCell();
         cell.appendChild(cc);
       }
@@ -638,28 +642,39 @@ class Lock7270 extends Instrument {
     this.requests = [];
     this.readout = {
       "mag": undefined,
-      "phase": undefined
+      "phase": undefined,
+      "mag2": undefined,
+      "phase2": undefined
     }
   }
   poll() {
-    this.requests.push("XY");
-    this.interface.endpoints[0].transfer("XY.\0", this.errorReporter.bind(this));
+    if (this.port != undefined) {
+      this.interface.endpoints[0].transfer("XY.\0", this.errorReporter.bind(this));
+      this.requests.push(1);
+      if (this.channels.value == 2) {
+		 this.interface.endpoints[0].transfer("XY2.\0", this.errorReporter.bind(this));
+        this.requests.push(2);
+      }
+    }
   }
   handleData(data) {
+	if(data.length > 3){
     var req = this.requests.shift();
-    if (req == "XY") {
+    if (req) {
       if (data[data.length - 3] == 0) {
         var parsed = String.fromCharCode.apply(String, data.slice(0, data.length - 3));
-        parsed = parsed.split(",");
-        var x = parseInt(parsed[0].replace(/(\r\n|\n|\r)/gm, ""));
-        var y = parseInt(parsed[1].replace(/(\r\n|\n|\r)/gm, ""));
-        this.readout = {
-          "mag": sqrt(x * x + y * y),
-          "phase": 180 * atan2(y, x) / 3.1415
-        }
-        this.updateText();
-        console.log("Status Bit is " + data[data.length - 2])
-        console.log("Overload Bit is " + data[data.length - 1])
+		parsed = parsed.split(",");
+		var x = parsed[0].replace(/(\r\n|\n|\r)/gm, "");
+		var y = parsed[1].replace(/(\r\n|\n|\r)/gm, "");
+		if (req == 1) {
+		  this.readout["mag"] = Math.sqrt(x * x + y * y);
+		  this.readout["phase"] = 180 * Math.atan2(y, x) / 3.1415;
+		}
+		else {
+		  this.readout["mag2"] = Math.sqrt(x * x + y * y);
+		  this.readout["phase2"] = 180 * Math.atan2(y, x) / 3.1415;
+		}
+		this.updateText();
       }
       else {
         console.log("Packet is incorrectly terminated");
@@ -669,10 +684,15 @@ class Lock7270 extends Instrument {
       console.log("Unknown request type " + req);
       console.log(data)
     }
+	}
+	else console.log(data);
+	
   }
   updateText() {
     this.readoutRow.getElementsByTagName("p").mag.textContent = this.readout["mag"] + " volts";
     this.readoutRow.getElementsByTagName("p").phase.textContent = this.readout["phase"] + " degrees";
+    this.readoutRow2.getElementsByTagName("p").mag.textContent = this.readout["mag2"] + " volts";
+    this.readoutRow2.getElementsByTagName("p").phase.textContent = this.readout["phase2"] + " degrees";
   }
   errorReporter(error) {
     if (error)
@@ -700,7 +720,7 @@ class Lock7270 extends Instrument {
         this.interface.endpoints[1].on('data', this.handleData.bind(this));
         this.interface.endpoints[1].on('error', this.errorReporter.bind(this));
         this.interface.endpoints[1].startPoll();
-        this.serialRow.getElementsByTagName("connect").textContent = "Disconnect";
+        this.serialRow.getElementsByTagName("button").connect.textContent = "Disconnect";
       }
     }
     else {
@@ -729,8 +749,26 @@ class Lock7270 extends Instrument {
       const nameplate = document.createElement("b");
       nameplate.textContent = this._name;
       const cell = row.insertCell();
-      cell.colSpan = 3;
+      cell.colSpan = 2;
       cell.appendChild(nameplate);
+
+      const cc0 = document.createElement("div");
+      const cc = document.createElement("div");
+      cc.textContent = "channels";
+      this.channels = document.createElement("input");
+      this.channels.type = "number"
+      this.channels.max = 2;
+      this.channels.min = 1;
+      this.channels.step = 1;
+      this.channels.value = 1;
+
+      this.channels.style.display = "inline-block";
+      cc.style.display = "inline-block";
+      const cell2 = row.insertCell();
+      cell2.colSpan = 1;
+      cc0.appendChild(this.channels);
+      cc0.appendChild(cc);
+      cell2.appendChild(cc0);
     }
     const tbody = orgtable.createTBody();
     {
@@ -743,22 +781,46 @@ class Lock7270 extends Instrument {
         const cell = this.serialRow.insertCell();
         cell.appendChild(cc);
         cell.colSpan = 3;
+      }      
+	  this.readoutRow = tbody.insertRow();
+      {
+        const cc = document.createElement("p");
+        cc.textContent = "Channel 1";
+        const cell = this.readoutRow.insertCell();
+        cell.appendChild(cc);
       }
-      this.readoutRow = tbody.insertRow();
       {
         const cc = document.createElement("p");
         cc.id = "mag";
         const cell = this.readoutRow.insertCell();
-        cell.colSpan = 1;
         cell.appendChild(cc);
       }
       {
         const cc = document.createElement("p");
         cc.id = "phase";
         const cell = this.readoutRow.insertCell();
-        cell.colSpan = 2;
         cell.appendChild(cc);
       }
+      this.readoutRow2 = tbody.insertRow();
+      {
+        const cc = document.createElement("p");
+        cc.textContent = "Channel 2";
+        const cell = this.readoutRow2.insertCell();
+        cell.appendChild(cc);
+      }
+      {
+        const cc = document.createElement("p");
+        cc.id = "mag";
+        const cell = this.readoutRow2.insertCell();
+        cell.appendChild(cc);
+      }
+      {
+        const cc = document.createElement("p");
+        cc.id = "phase";
+        const cell = this.readoutRow2.insertCell();
+        cell.appendChild(cc);
+      }
+
     }
     this.container.append(orgtable);
     this.updateText();
@@ -780,7 +842,7 @@ class Lock7265 extends Instrument {
     if (this.port != undefined) {
       this.port.write("XY\n");
       this.requests.push(1);
-      if (this.channels.value = 2) {
+      if (this.channels.value == 2) {
         this.port.write("XY2\n");
         this.requests.push(2);
       }
@@ -792,18 +854,18 @@ class Lock7265 extends Instrument {
     this.readoutRow2.getElementsByTagName("p").mag.textContent = this.readout["mag2"] + " volts";
     this.readoutRow2.getElementsByTagName("p").phase.textContent = this.readout["phase2"] + " degrees";
   }
-  parseLine(line) {
+  parseLine(parsed) {
     var req = this.requests.shift();
-    line = line.split(",");
+    parsed = parsed.split(",");
     var x = parsed[0].replace(/(\r\n|\n|\r)/gm, "");
     var y = parsed[1].replace(/(\r\n|\n|\r)/gm, "");
     if (req == 1) {
-      this.readout["mag"] = sqrt(x * x + y * y);
-      this.readout["phase"] = 180 * atan2(y, x) / 3.1415;
+      this.readout["mag"] = Math.sqrt(x * x + y * y);
+      this.readout["phase"] = 180 * Math.atan2(y, x) / 3.1415;
     }
     else {
-      this.readout["mag2"] = sqrt(x * x + y * y);
-      this.readout["phase2"] = 180 * atan2(y, x) / 3.1415;
+      this.readout["mag2"] = Math.sqrt(x * x + y * y);
+      this.readout["phase2"] = 180 * Math.atan2(y, x) / 3.1415;
     }
     this.updateText();
   }
@@ -834,9 +896,10 @@ class Lock7265 extends Instrument {
             return console.log('Error: ', err.message)
           }
           else {
-            parser = new Readline()
+            let parser = new Readline()
             this.port.pipe(parser)
-            parser.on('data', (line => this.parseLine(line.replace(/(\r\n|\n|\r)/gm, ""))).bind(this));
+            //parser.on('data', (line => this.parseLine(line.replace(/(\r\n|\n|\r)/gm, ""))).bind(this));
+			parser.on('data', (line => console.log(line)));
 
             this.port.on('close', function (err) {
               this.connected = false;
@@ -1045,7 +1108,6 @@ class DynaCool extends Instrument {
       "chamberCode": 255
     }
     this.ready = false;
-    this.requests = [];
   }
   connect(host, port) {
     if (!this.ready) {
@@ -1066,21 +1128,12 @@ class DynaCool extends Instrument {
   }
   poll() {
     if (this.ready) {
-      this.requests.push("t?");
-      this.socket.write("TEMP?\n");
-
-      this.requests.push("f?");
-      this.socket.write("FIELD?\n");
-
-      this.requests.push("c?");
-      this.socket.write("CHAMBER?\n");
+	  this.socket.write("ALL?\n");
     }
   }
   parse(data) {
-    data = data.split(",");
-    let req = this.requests.shift();
-    let err = 0;
-    if (req == "t?") {
+    data = data.toString().replace(" ","").split(",");
+    /*if (req == "t?") {
       err = data[0];
       this.readout["temp"] = data[1];
       this.readout["tempCode"] = data[2];
@@ -1093,40 +1146,49 @@ class DynaCool extends Instrument {
     else if (req == "c?") {
       err = data[0];
       this.readout["chamberCode"] = data[1];
+    }*/
+	if (data[0] == "ALL?"){
+	  if (data[1] != 0) console.log("TEMP query error");
+      this.readout["temp"] = parseFloat(data[2]);
+      this.readout["tempCode"] = parseInt(data[3]);
+	  if (data[4] != 0) console.log("FIELD query error");
+      this.readout["field"] = parseFloat(data[5]);
+      this.readout["fieldCode"] = parseInt(data[6]);
+	  if (data[7] != 0) console.log("CHAMBER query error");
+      this.readout["chamberCode"] = parseInt(data[8]);
+	}
+    else if (data[0] == "TEMP") {
+	  if(data[1] != "0") console.log("TEMP set error");
     }
-    else if (req == "t") {
-      err = data[0];
+    else if (data[0] == "FIELD") {
+      if(data[1] != "0") console.log("FIELD set error");
     }
-    else if (req == "f") {
-      err = data[0];
-    }
-    else if (req == "c") {
-      err = data[0];
+    else if (data[0] == "CHAMBER") {
+      if(data[1] != "0") console.log("CHAMBER set error");
     }
     else {
       console.log("Unknown PPMS response");
       console.log(data);
     }
-    if (err != 0) alert("PPMS ERROR");
+	this.updateText();
   }
   socketClose() {
     this.ready = false;
-    this.requests = [];
     this.addrRow.getElementsByTagName("button").connect.textContent = "Connect";
   }
   setField(field, rate, code) {
     if ((field != "") && (rate != "") && (code != undefined)) {
-      this.port.write("FIELD " + field + "," + rate + "," + code);
+      this.socket.write("FIELD " + field + "," + rate + "," + code + ",1\n");
     }
   }
   setTemp(temp, rate, code) {
     if ((temp != "") && (rate != "") && (code != undefined)) {
-      this.port.write("TEMP " + temp + "," + rate + "," + code);
+      this.socket.write("TEMP " + temp + "," + rate + "," + code + "\n");
     }
   }
   setChamber(code) {
     if (code != 255) {
-      this.port.write("CHAMBER " + code);
+      this.socket.write("CHAMBER " + code + "\n");
     }
   }
   updateText() {
@@ -1262,7 +1324,7 @@ class DynaCool extends Instrument {
         const cc3 = document.createElement("button");
         cc3.textContent = "Send";
         cc3.onclick = function () {
-          this.setTemp(
+          this.setField(
             this.controlRow.getElementsByTagName("input").field.value,
             this.rateRow.getElementsByTagName("input").field.value,
             this.rateRow.getElementsByTagName("select").fieldApproach.value
@@ -1417,7 +1479,7 @@ function SaveLogs(fname) {
 let xaxis = document.createElement("select");
 let yaxis = document.createElement("ul");
 yaxis.style = "list-style: none; padding-inline-start:10px;"
-let instruments = [new TimeKeeper("tk"), new NVmeter2182A("nv"), new RF845("rf"), new Lock7265("lockin"), new DynaCool("ppms")];
+let instruments = [new TimeKeeper("tk"), new NVmeter2182A("nv"), new RF845("rf"), new Lock7270("lockin"), new DynaCool("ppms")];
 for (const each of instruments) {
   document.body.appendChild(each.html);
   for (const [key, value] of Object.entries(each.readout)) {
@@ -1524,7 +1586,7 @@ function poller() {
   for (const each of instruments) {
     each.poll();
   }
-  setTimeout(poller, 500);
+  setTimeout(poller, 200);
 }
 {
   const plotdiv = document.createElement("div");
