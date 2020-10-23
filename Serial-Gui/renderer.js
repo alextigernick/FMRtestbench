@@ -184,35 +184,19 @@ class VSource6221A extends Instrument {
     super(name);
     this.readout = { "amp": undefined ,
                      "freq": undefined,
-					 "offs": undefined
+					 "offs": undefined,
+					 "on": false
                     };
     this.connected = false;
-	this.queue = [];
-	this.messageOut = false;
   }
   poll() {
     /*if (this.connected)
       this.port.write(":FETCH?\n");*/
   }
   parseLine(line) {
-	if (this.queue.length) {
-		this.port.write(this.queue.shift() +"\n");
-	}
-	else {
-		this.messageOut = false;
-	}
     console.log(this._name + " " + line);
     //this.readout = { "voltage": line };
     //this.readout_element.textContent = line + " Volts";
-  }
-  addToQueue(msg){
-	if(this.messageOut||this.queue.length){
-		this.queue.push(msg)
-	}
-	else{
-		this.messageOut = true;
-		this.port.write(msg +"\n");
-	}
   }
   refreshPorts() {
     serialport.list(function (err, portl) {
@@ -231,21 +215,33 @@ class VSource6221A extends Instrument {
     }
   }
   turnOn() {
-	this.queue.push("SOUR:WAVE:INIT");
-	this.queue.push("OUTP:STAT 1");
+	this.readoutRow.getElementsByTagName("button").on.textContent = "On";
+	this.port.write("SOUR:WAVE:PMAR:STAT ON \n");
+	this.port.write("SOUR:WAVE:PMAR 0 \n");
+	this.port.write("SOUR:WAVE:PMAR:OLIN 1 \n");
+	
+	this.port.write("SOUR:WAVE:ARM \n");
+	this.port.write("SOUR:WAVE:INIT \n");
+	this.port.write("OUTP:STAT 1 \n");
+	this.readout["on"] = true;
   }
   turnOff() {
-	this.queue.push("SOUR:WAVE:ABOR");
-	this.queue.push("OUTP:STAT 0");
+	  this.readoutRow.getElementsByTagName("button").on.textContent = "Off";
+	this.port.write("SOUR:WAVE:ABOR \n");
+	this.port.write("OUTP:STAT 0 \n");
+	this.readout["on"] = false;
   }
   setAmplitude(level){
-	this.queue.push("SOUR:WAVE:AMPL " + level.toString());
+	this.port.write("SOUR:WAVE:AMPL " + level.toString()+"\n");
+	this.readout["amp"] = level;
   }
   setOffset(level){
-	this.queue.push("SOUR:WAVE:OFFS " + level.toString());
+	this.port.write("SOUR:WAVE:OFFS " + level.toString()+"\n");
+	this.readout["offs"] = level;
   }
   setFreq(level){
-	this.queue.push("SOUR:WAVE:FREQ " + level.toString());
+	this.port.write("SOUR:WAVE:FREQ " + level.toString()+"\n");
+	this.readout["freq"] = level;
   }
 
   connect() {
@@ -274,7 +270,6 @@ class VSource6221A extends Instrument {
 
             //this.port.write(":CONF:VOLT:DC\n", this.writeErrorHandler.bind(this));//:CONFigure:VOLTage:DC
             //this.port.write(":INIT:CONT ON\n", this.writeErrorHandler.bind(this));//:INITiate:CONTinuous ON
-
             this.connected = true;
             this.serialRow.getElementsByTagName("button").refresh.disabled = this.connected;
             this.serialRow.getElementsByTagName("button").connect.textContent = this.connected ? "Disconnect" : "Connect";
@@ -371,7 +366,7 @@ class VSource6221A extends Instrument {
         cc2.max = 0.105;
         cc2.min = -0.105;
         cc2.step = 100e-15;
-        cc2.addEventListener("change", function () { this.setOffset(this.readoutRow.getElementsByTagName("input").power.value); }.bind(this));
+        cc2.addEventListener("change", function () { this.setOffset(this.readoutRow.getElementsByTagName("input").offset.value); }.bind(this));
 
         cc2.style.display = "inline-block";
         cc.style.display = "inline-block";
@@ -385,11 +380,11 @@ class VSource6221A extends Instrument {
         cc.textContent = "Amplitude(A)";
         const cc2 = document.createElement("input");
         cc2.type = "number"
-        cc2.id = "offset"
+        cc2.id = "amp"
         cc2.max = 0.105;
         cc2.min = -0.105;
         cc2.step = 100e-15;
-        cc2.addEventListener("change", function () { this.setAmplitude(this.readoutRow.getElementsByTagName("input").power.value); }.bind(this));
+        cc2.addEventListener("change", function () { this.setAmplitude(this.readoutRow.getElementsByTagName("input").amp.value); }.bind(this));
 
         cc2.style.display = "inline-block";
         cc.style.display = "inline-block";
@@ -874,22 +869,29 @@ class Lock7270 extends Instrument {
     super(name);
     this.requests = [];
     this.readout = {
-      "mag": undefined,
-      "phase": undefined,
-      "mag2": undefined,
-      "phase2": undefined
+      "x1": undefined,
+      "y1": undefined,
+      "x2": undefined,
+      "y2": undefined,
+	  "mag1" : undefined,
+	  "mag2" : undefined
     }
   }
   poll() {
     if (this.port != undefined) {
-      this.interface.endpoints[0].transfer("XY.\0", this.errorReporter.bind(this));
-      this.requests.push(1);
-      if (this.channels.value == 2) {
-		 this.interface.endpoints[0].transfer("XY2.\0", this.errorReporter.bind(this));
-        this.requests.push(2);
+		if (this.channels.value == 2) {
+			this.interface.endpoints[0].transfer("XY1.\0", this.errorReporter.bind(this));
+			this.requests.push(1);
+			this.interface.endpoints[0].transfer("XY2.\0", this.errorReporter.bind(this));
+			this.requests.push(2);
+		}
+		else{
+		  this.interface.endpoints[0].transfer("XY.\0", this.errorReporter.bind(this));
+		  this.requests.push(1);
+		}
+
       }
     }
-  }
   handleData(data) {
 	if(data.length > 3){
     var req = this.requests.shift();
@@ -900,12 +902,16 @@ class Lock7270 extends Instrument {
 		var x = parsed[0].replace(/(\r\n|\n|\r)/gm, "");
 		var y = parsed[1].replace(/(\r\n|\n|\r)/gm, "");
 		if (req == 1) {
-		  this.readout["mag"] = Math.sqrt(x * x + y * y);
-		  this.readout["phase"] = 180 * Math.atan2(y, x) / 3.1415;
+	      this.readout["x1"] = x;
+		  this.readout["y1"] = y;
+		  this.readout["mag1"] = Math.sqrt(x * x + y * y);
+		  //this.readout["phase"] = 180 * Math.atan2(y, x) / 3.1415;
 		}
 		else {
+		  this.readout["x2"] = x;
+		  this.readout["y2"] = y;
 		  this.readout["mag2"] = Math.sqrt(x * x + y * y);
-		  this.readout["phase2"] = 180 * Math.atan2(y, x) / 3.1415;
+		  //this.readout["phase2"] = 180 * Math.atan2(y, x) / 3.1415;
 		}
 		this.updateText();
       }
@@ -922,10 +928,10 @@ class Lock7270 extends Instrument {
 	
   }
   updateText() {
-    this.readoutRow.getElementsByTagName("p").mag.textContent = this.readout["mag"] + " volts";
-    this.readoutRow.getElementsByTagName("p").phase.textContent = this.readout["phase"] + " degrees";
-    this.readoutRow2.getElementsByTagName("p").mag.textContent = this.readout["mag2"] + " volts";
-    this.readoutRow2.getElementsByTagName("p").phase.textContent = this.readout["phase2"] + " degrees";
+    this.readoutRow.getElementsByTagName("p").mag.textContent = this.readout["x1"] + " volts";
+    this.readoutRow.getElementsByTagName("p").phase.textContent = this.readout["y1"] + " degrees";
+    this.readoutRow2.getElementsByTagName("p").mag.textContent = this.readout["x2"] + " volts";
+    this.readoutRow2.getElementsByTagName("p").phase.textContent = this.readout["y2"] + " degrees";
   }
   errorReporter(error) {
     if (error)
@@ -1410,12 +1416,12 @@ class DynaCool extends Instrument {
     this.addrRow.getElementsByTagName("button").connect.textContent = "Connect";
   }
   setField(field, rate, code) {
-    if ((field != "") && (rate != "") && (code != undefined)) {
+    if ((field.toString() != "") && (rate != "") && (code != undefined)) {
       this.socket.write("FIELD " + field + "," + rate + "," + code + ",1\n");
     }
   }
   setTemp(temp, rate, code) {
-    if ((temp != "") && (rate != "") && (code != undefined)) {
+    if ((temp.toString() != "") && (rate != "") && (code != undefined)) {
       this.socket.write("TEMP " + temp + "," + rate + "," + code + "\n");
     }
   }
