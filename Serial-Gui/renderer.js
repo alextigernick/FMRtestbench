@@ -50,7 +50,7 @@ class NVmeter2182A extends Instrument {
       this.port.write(":FETCH?\n");
   }
   parseLine(line) {
-    console.log(this._name + " " + line);
+    //console.log(this._name + " " + line);
     this.readout = { "voltage": line };
     this.readout_element.textContent = line + " Volts";
   }
@@ -172,6 +172,239 @@ class NVmeter2182A extends Instrument {
         const cell = readoutRow.insertCell();
         cell.colSpan = 3;
         cell.appendChild(this.readout_element);
+      }
+    }
+    this.container.append(orgtable);
+    this.refreshPorts();
+    return this.container
+  }
+}
+class VSource6221A extends Instrument {
+  constructor(name) {
+    super(name);
+    this.readout = { "amp": undefined ,
+                     "freq": undefined,
+					 "offs": undefined
+                    };
+    this.connected = false;
+	this.queue = [];
+	this.messageOut = false;
+  }
+  poll() {
+    /*if (this.connected)
+      this.port.write(":FETCH?\n");*/
+  }
+  parseLine(line) {
+	if (this.queue.length) {
+		this.port.write(this.queue.shift() +"\n");
+	}
+	else {
+		this.messageOut = false;
+	}
+    console.log(this._name + " " + line);
+    //this.readout = { "voltage": line };
+    //this.readout_element.textContent = line + " Volts";
+  }
+  addToQueue(msg){
+	if(this.messageOut||this.queue.length){
+		this.queue.push(msg)
+	}
+	else{
+		this.messageOut = true;
+		this.port.write(msg +"\n");
+	}
+  }
+  refreshPorts() {
+    serialport.list(function (err, portl) {
+      portl.forEach(function (port) {
+        var opt = document.createElement('option');
+        opt.value = port.comName;
+        opt.innerHTML = port.comName + " - " + port.manufacturer;
+        this.serialRow.getElementsByTagName("select").portselect.appendChild(opt);
+      }.bind(this)
+      );
+    }.bind(this));
+  }
+  writeErrorHandler(err) {
+    if (err) {
+      console.log(err);
+    }
+  }
+  turnOn() {
+	this.queue.push("SOUR:WAVE:INIT");
+	this.queue.push("OUTP:STAT 1");
+  }
+  turnOff() {
+	this.queue.push("SOUR:WAVE:ABOR");
+	this.queue.push("OUTP:STAT 0");
+  }
+  setAmplitude(level){
+	this.queue.push("SOUR:WAVE:AMPL " + level.toString());
+  }
+  setOffset(level){
+	this.queue.push("SOUR:WAVE:OFFS " + level.toString());
+  }
+  setFreq(level){
+	this.queue.push("SOUR:WAVE:FREQ " + level.toString());
+  }
+
+  connect() {
+    if (!this.connected) {
+      let select = this.serialRow.getElementsByTagName("select").portselect;
+      let baud = this.serialRow.getElementsByTagName("select").portbaud;
+
+      this.port = new serialport(select.options[select.selectedIndex].value, { baudRate: parseInt(baud.options[baud.selectedIndex].value) },
+        function (err) {
+          if (err) {
+            return console.log('Error: ', err.message)
+          }
+          else {
+            let parser = new Readline()
+            this.port.pipe(parser)
+            parser.on('data', (line => this.parseLine(line.replace(/(\r\n|\n|\r)/gm, ""))).bind(this));
+
+            this.port.on('close', function (err) {
+              this.connected = false;
+              this.serialRow.getElementsByTagName("button").refresh.disabled = this.connected;
+              this.serialRow.getElementsByTagName("button").connect.textContent = this.connected ? "Disconnect" : "Connect";
+              if (err) {
+                console.log(err);
+              }
+            }.bind(this));
+
+            //this.port.write(":CONF:VOLT:DC\n", this.writeErrorHandler.bind(this));//:CONFigure:VOLTage:DC
+            //this.port.write(":INIT:CONT ON\n", this.writeErrorHandler.bind(this));//:INITiate:CONTinuous ON
+
+            this.connected = true;
+            this.serialRow.getElementsByTagName("button").refresh.disabled = this.connected;
+            this.serialRow.getElementsByTagName("button").connect.textContent = this.connected ? "Disconnect" : "Connect";
+          }
+        }.bind(this)
+      );
+    }
+    else {
+      this.port.close();
+    }
+  }
+  get html() {
+    if (typeof this.container != "undefined") {
+      return this.container
+    }
+    this.container = document.createElement("div");
+    this.container.className = "instrument";
+
+    const orgtable = document.createElement("table");
+    const thead = orgtable.createTHead();
+    {
+      const row = thead.insertRow();
+      const nameplate = document.createElement("b");
+      nameplate.textContent = this._name;
+      const cell = row.insertCell();
+      cell.colSpan = 3;
+      cell.appendChild(nameplate);
+    }
+    const tbody = orgtable.createTBody();
+    {
+      this.serialRow = tbody.insertRow();
+      {
+        const cc = document.createElement("select");
+        cc.id = "portselect";
+        const cell = this.serialRow.insertCell();
+        cell.appendChild(cc);
+
+        const cc2 = document.createElement("button");
+        cc2.textContent = "↻";
+        cc2.id = "refresh";
+        cc2.onclick = this.refreshPorts.bind(this);
+        cell.appendChild(cc2);
+      }
+      {
+        const cc = document.createElement("select");
+        cc.id = "portbaud";
+        const opts = [300, 600, 1200, 2400, 4800, 9600, 19200,38400,57600,115200];
+        let rate;
+        for (rate of opts) {
+          const option = document.createElement("option");
+          option.value = rate;
+          option.textContent = rate;
+          if (rate == 19200) {
+            option.selected = true;
+          }
+          cc.appendChild(option);
+        }
+        const cell = this.serialRow.insertCell();
+        cell.appendChild(cc);
+      }
+      {
+        const cc = document.createElement("button");
+        cc.textContent = "Connect";
+        cc.id = "connect";
+        cc.onclick = this.connect.bind(this);
+        const cell = this.serialRow.insertCell();
+        cell.appendChild(cc);
+      }
+      this.readoutRow = tbody.insertRow();
+      {
+        const cc = document.createElement("div");
+        cc.textContent = "Freq(Hz)";
+        const cc2 = document.createElement("input");
+        cc2.type = "number"
+        cc2.id = "freq"
+        cc2.max = 1e5;
+        cc2.min = 1e-3;
+        cc2.step = 1e-3;
+        cc2.addEventListener("change", function () { this.setFreq(this.readoutRow.getElementsByTagName("input").freq.value); }.bind(this));
+
+        cc2.style.display = "inline-block";
+        cc.style.display = "inline-block";
+        const cell = this.readoutRow.insertCell();
+        cell.colSpan = 1;
+        cell.appendChild(cc2);
+        cell.appendChild(cc);
+      }
+      {
+        const cc = document.createElement("div");
+        cc.textContent = "Offset(A)";
+        const cc2 = document.createElement("input");
+        cc2.type = "number"
+        cc2.id = "offset"
+        cc2.max = 0.105;
+        cc2.min = -0.105;
+        cc2.step = 100e-15;
+        cc2.addEventListener("change", function () { this.setOffset(this.readoutRow.getElementsByTagName("input").power.value); }.bind(this));
+
+        cc2.style.display = "inline-block";
+        cc.style.display = "inline-block";
+        const cell = this.readoutRow.insertCell();
+        cell.colSpan = 1;
+        cell.appendChild(cc2);
+        cell.appendChild(cc);
+      }
+	  {
+        const cc = document.createElement("div");
+        cc.textContent = "Amplitude(A)";
+        const cc2 = document.createElement("input");
+        cc2.type = "number"
+        cc2.id = "offset"
+        cc2.max = 0.105;
+        cc2.min = -0.105;
+        cc2.step = 100e-15;
+        cc2.addEventListener("change", function () { this.setAmplitude(this.readoutRow.getElementsByTagName("input").power.value); }.bind(this));
+
+        cc2.style.display = "inline-block";
+        cc.style.display = "inline-block";
+        const cell = this.readoutRow.insertCell();
+        cell.colSpan = 1;
+        cell.appendChild(cc2);
+        cell.appendChild(cc);
+      }
+      {
+        const cc = document.createElement("button");
+        cc.textContent = "On";
+        cc.id = "on";
+        cc.onclick = function () { if (this.readout["on"]) { this.turnOff(); } else { this.turnOn(); } }.bind(this);
+        const cell = this.readoutRow.insertCell();
+        cell.appendChild(cc);
       }
     }
     this.container.append(orgtable);
@@ -1479,7 +1712,7 @@ function SaveLogs(fname) {
 let xaxis = document.createElement("select");
 let yaxis = document.createElement("ul");
 yaxis.style = "list-style: none; padding-inline-start:10px;"
-let instruments = [new TimeKeeper("tk"), new NVmeter2182A("nv"), new RF845("rf"), new Lock7270("lockin"), new DynaCool("ppms")];
+let instruments = [new TimeKeeper("tk"), new NVmeter2182A("nv"), new RF845("rf"), new Lock7270("lockin"), new DynaCool("ppms"), new VSource6221A("6221")];
 for (const each of instruments) {
   document.body.appendChild(each.html);
   for (const [key, value] of Object.entries(each.readout)) {
