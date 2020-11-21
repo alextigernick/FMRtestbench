@@ -13,6 +13,7 @@ const Plotly = require('plotly.js-dist');
 const { title } = require("process");
 const { throws } = require("assert");
 const { dialog } = require('electron').remote;
+const Lock7270 = require("./lock.js");
 let AsyncFunction = Object.getPrototypeOf(async function(){}).constructor
 logs = [];
 logging = false;
@@ -215,11 +216,14 @@ class VSource6221A extends Instrument {
     }
   }
   turnOn() {
-	this.readoutRow.getElementsByTagName("button").on.textContent = "On";
+  this.readoutRow.getElementsByTagName("button").on.textContent = "On";
+  this.port.write("CURRent:RANGe:AUTO ON \n");
+  this.port.write("CURRent:COMPliance 80 \n");
 	this.port.write("SOUR:WAVE:PMAR:STAT ON \n");
-	this.port.write("SOUR:WAVE:PMAR 0 \n");
+  this.port.write("SOUR:WAVE:PMAR 180 \n");
 	this.port.write("SOUR:WAVE:PMAR:OLIN 1 \n");
-	
+  this.port.write("SOUR:WAVE:RANG BEST\n");
+  
 	this.port.write("SOUR:WAVE:ARM \n");
 	this.port.write("SOUR:WAVE:INIT \n");
 	this.port.write("OUTP:STAT 1 \n");
@@ -864,208 +868,7 @@ class RF845 extends Instrument {
     return this.container
   }
 }
-class Lock7270 extends Instrument {
-  constructor(name) {
-    super(name);
-    this.requests = [];
-    this.readout = {
-      "x1": undefined,
-      "y1": undefined,
-      "x2": undefined,
-      "y2": undefined,
-	  "mag1" : undefined,
-	  "mag2" : undefined
-    }
-  }
-  poll() {
-    if (this.port != undefined) {
-		if (this.channels.value == 2) {
-			this.interface.endpoints[0].transfer("XY1.\0", this.errorReporter.bind(this));
-			this.requests.push(1);
-			this.interface.endpoints[0].transfer("XY2.\0", this.errorReporter.bind(this));
-			this.requests.push(2);
-		}
-		else{
-		  this.interface.endpoints[0].transfer("XY.\0", this.errorReporter.bind(this));
-		  this.requests.push(1);
-		}
 
-      }
-    }
-  handleData(data) {
-	if(data.length > 3){
-    var req = this.requests.shift();
-    if (req) {
-      if (data[data.length - 3] == 0) {
-        var parsed = String.fromCharCode.apply(String, data.slice(0, data.length - 3));
-		parsed = parsed.split(",");
-		var x = parsed[0].replace(/(\r\n|\n|\r)/gm, "");
-		var y = parsed[1].replace(/(\r\n|\n|\r)/gm, "");
-		if (req == 1) {
-	      this.readout["x1"] = x;
-		  this.readout["y1"] = y;
-		  this.readout["mag1"] = Math.sqrt(x * x + y * y);
-		  //this.readout["phase"] = 180 * Math.atan2(y, x) / 3.1415;
-		}
-		else {
-		  this.readout["x2"] = x;
-		  this.readout["y2"] = y;
-		  this.readout["mag2"] = Math.sqrt(x * x + y * y);
-		  //this.readout["phase2"] = 180 * Math.atan2(y, x) / 3.1415;
-		}
-		this.updateText();
-      }
-      else {
-        console.log("Packet is incorrectly terminated");
-      }
-    }
-    else {
-      console.log("Unknown request type " + req);
-      console.log(data)
-    }
-	}
-	else console.log(data);
-	
-  }
-  updateText() {
-    this.readoutRow.getElementsByTagName("p").mag.textContent = this.readout["x1"] + " volts";
-    this.readoutRow.getElementsByTagName("p").phase.textContent = this.readout["y1"] + " degrees";
-    this.readoutRow2.getElementsByTagName("p").mag.textContent = this.readout["x2"] + " volts";
-    this.readoutRow2.getElementsByTagName("p").phase.textContent = this.readout["y2"] + " degrees";
-  }
-  errorReporter(error) {
-    if (error)
-      alert(this._name + " " + error);
-  }
-  connect() {
-    if (!this.connected) {
-      this.port = usb.findByIds(0x0a2d, 0x001b);
-      if (this.port == undefined) {
-        alert("Could not find lock-in");
-        return;
-      }
-      else {
-        this.port.open();
-        this.connected = true;
-        this.interface = this.port.interface(0);
-
-        if (!navigator["userAgent"].toLowerCase().includes("windows")) {
-          if (this.interface.isKernelDriverActive()) {
-            this.interface.detachKernelDriver()
-            console.log("Detached kernel driver for lock-in")
-          }
-        }
-        this.interface.claim();
-        this.interface.endpoints[1].on('data', this.handleData.bind(this));
-        this.interface.endpoints[1].on('error', this.errorReporter.bind(this));
-        this.interface.endpoints[1].startPoll();
-        this.serialRow.getElementsByTagName("button").connect.textContent = "Disconnect";
-      }
-    }
-    else {
-      alert("Not implemented, close the program to disconnect");
-      /*if (lockIntf.endpoints[1].pollActive)
-        lockIntf.endpoints[1].stopPoll()
-      lockIntf.release(true,function(err){console.log(err)});
-      lockPort.close();
-      lockPort = undefined;
-      lockConnected = false;
-      document.getElementById("connectLock").innerHTML = "Connect";*/
-    }
-  }
-
-  get html() {
-    if (typeof this.container != "undefined") {
-      return this.container
-    }
-    this.container = document.createElement("div");
-    this.container.className = "instrument";
-
-    const orgtable = document.createElement("table");
-    const thead = orgtable.createTHead();
-    {
-      const row = thead.insertRow();
-      const nameplate = document.createElement("b");
-      nameplate.textContent = this._name;
-      const cell = row.insertCell();
-      cell.colSpan = 2;
-      cell.appendChild(nameplate);
-
-      const cc0 = document.createElement("div");
-      const cc = document.createElement("div");
-      cc.textContent = "channels";
-      this.channels = document.createElement("input");
-      this.channels.type = "number"
-      this.channels.max = 2;
-      this.channels.min = 1;
-      this.channels.step = 1;
-      this.channels.value = 1;
-
-      this.channels.style.display = "inline-block";
-      cc.style.display = "inline-block";
-      const cell2 = row.insertCell();
-      cell2.colSpan = 1;
-      cc0.appendChild(this.channels);
-      cc0.appendChild(cc);
-      cell2.appendChild(cc0);
-    }
-    const tbody = orgtable.createTBody();
-    {
-      this.serialRow = tbody.insertRow();
-      {
-        const cc = document.createElement("button");
-        cc.textContent = "Connect";
-        cc.id = "connect";
-        cc.onclick = this.connect.bind(this);
-        const cell = this.serialRow.insertCell();
-        cell.appendChild(cc);
-        cell.colSpan = 3;
-      }      
-	  this.readoutRow = tbody.insertRow();
-      {
-        const cc = document.createElement("p");
-        cc.textContent = "Channel 1";
-        const cell = this.readoutRow.insertCell();
-        cell.appendChild(cc);
-      }
-      {
-        const cc = document.createElement("p");
-        cc.id = "mag";
-        const cell = this.readoutRow.insertCell();
-        cell.appendChild(cc);
-      }
-      {
-        const cc = document.createElement("p");
-        cc.id = "phase";
-        const cell = this.readoutRow.insertCell();
-        cell.appendChild(cc);
-      }
-      this.readoutRow2 = tbody.insertRow();
-      {
-        const cc = document.createElement("p");
-        cc.textContent = "Channel 2";
-        const cell = this.readoutRow2.insertCell();
-        cell.appendChild(cc);
-      }
-      {
-        const cc = document.createElement("p");
-        cc.id = "mag";
-        const cell = this.readoutRow2.insertCell();
-        cell.appendChild(cc);
-      }
-      {
-        const cc = document.createElement("p");
-        cc.id = "phase";
-        const cell = this.readoutRow2.insertCell();
-        cell.appendChild(cc);
-      }
-
-    }
-    this.container.append(orgtable);
-    this.updateText();
-    return this.container
-  }
-}
 class Lock7265 extends Instrument {
   constructor(name) {
     super(name);
@@ -1344,7 +1147,9 @@ class DynaCool extends Instrument {
       "tempCode": 255,
       "field": 0,
       "fieldCode": 255,
-      "chamberCode": 255
+      "chamberCode": 255,
+      "rotator": 0,
+      "rotatorCode": 255,
     }
     this.ready = false;
   }
@@ -1355,7 +1160,6 @@ class DynaCool extends Instrument {
         this.ready = true;
         this.addrRow.getElementsByTagName("button").connect.textContent = "Disconnect";
       }.bind(this));
-      console.log(address, port);
       this.socket.on('data', this.parse.bind(this));
       this.socket.on('end', this.socketClose);
 
@@ -1387,26 +1191,32 @@ class DynaCool extends Instrument {
       this.readout["chamberCode"] = data[1];
     }*/
 	if (data[0] == "ALL?"){
-	  if (data[1] != 0) console.log("TEMP query error");
+	  if (data[1] != 0) console.log("TEMP query error: "+ data[1]);
       this.readout["temp"] = parseFloat(data[2]);
       this.readout["tempCode"] = parseInt(data[3]);
-	  if (data[4] != 0) console.log("FIELD query error");
+	  if (data[4] != 0) console.log("FIELD query error: " + data[4]);
       this.readout["field"] = parseFloat(data[5]);
       this.readout["fieldCode"] = parseInt(data[6]);
-	  if (data[7] != 0) console.log("CHAMBER query error");
+	  if (data[7] != 0) console.log("CHAMBER query error: " + data[7]);
       this.readout["chamberCode"] = parseInt(data[8]);
+    if (parseInt(data[9]) != 0) console.log("POS query error: " + data[9]);
+      this.readout["rotator"] = parseFloat(data[11]);
+      this.readout["rotatorCode"] = parseInt(data[10]);
 	}
     else if (data[0] == "TEMP") {
-	  if(data[1] != "0") console.log("TEMP set error");
+	  if(data[1] != "0") console.log("TEMP set error: " + data[1]);
     }
     else if (data[0] == "FIELD") {
-      if(data[1] != "0") console.log("FIELD set error");
+      if(data[1] != "0") console.log("FIELD set error: " + data[1]);
     }
     else if (data[0] == "CHAMBER") {
-      if(data[1] != "0") console.log("CHAMBER set error");
+      if(data[1] != "0") console.log("CHAMBER set error: " + data[1]);
+    }
+    else if (data[0] == "POS") {
+      if(data[1] != "0") console.log("Rotator set error: " + data[1]);
     }
     else {
-      console.log("Unknown PPMS response");
+      console.log("Unknown PPMS response: ");
       console.log(data);
     }
 	this.updateText();
@@ -1425,6 +1235,11 @@ class DynaCool extends Instrument {
       this.socket.write("TEMP " + temp + "," + rate + "," + code + "\n");
     }
   }
+  setRotator(position, rate) {
+    if ((position.toString() != "") && rate != "") {
+      this.socket.write("POS " + position + "," + rate + "\n");
+    }
+  }
   setChamber(code) {
     if (code != 255) {
       this.socket.write("CHAMBER " + code + "\n");
@@ -1434,9 +1249,11 @@ class DynaCool extends Instrument {
     this.readoutRow.getElementsByTagName("p").fieldCodeReadout.textContent = DynaCool.getFieldCodes[this.readout["fieldCode"]];
     this.readoutRow.getElementsByTagName("p").tempCodeReadout.textContent = DynaCool.getTempCodes[this.readout["tempCode"]];
     this.readoutRow.getElementsByTagName("p").chamberCodeReadout.textContent = DynaCool.getChamberCodes[this.readout["chamberCode"]];
+    this.readoutRow.getElementsByTagName("p").rotatorCodeReadout.textContent = DynaCool.getChamberCodes[this.readout["rotatorCode"]];
 
     this.readoutRow.getElementsByTagName("p").fieldReadout.textContent = ((this.readout["field"] != undefined) ? this.readout["field"] : "N/A") + " Oe";
     this.readoutRow.getElementsByTagName("p").tempReadout.textContent = ((this.readout["temp"] != undefined) ? this.readout["temp"] : "N/A") + " K";
+    this.readoutRow.getElementsByTagName("p").rotatorReadout.textContent = ((this.readout["rotator"] != undefined) ? this.readout["rotator"] : "N/A") + " Degrees?";
   }
   get html() {
     if (typeof this.container != "undefined") {
@@ -1512,13 +1329,51 @@ class DynaCool extends Instrument {
       }
       {
         const cc = document.createElement("p");
+        cc.textContent = "N\A Degrees?";
+        cc.id = "rotatorReadout";
+        const cc2 = document.createElement("p");
+        cc2.id = "rotatorCodeReadout";
+        const cell = this.readoutRow.insertCell();
+        cell.colSpan = 1;
+        cell.appendChild(cc);
+        cell.appendChild(cc2);
+      }
+      {
+        const cc = document.createElement("p");
         cc.id = "chamberCodeReadout";
         const cell = this.readoutRow.insertCell();
         cell.colSpan = 1;
         cell.appendChild(cc);
 
       }
+
       this.controlRow = tbody.insertRow();
+      {
+        const cc = document.createElement("div");
+        cc.textContent = " Oe";
+        const cc2 = document.createElement("input");
+        cc2.type = "number"
+        cc2.id = "field"
+        cc2.step = 1;
+
+        cc2.style.display = "inline-block";
+        cc.style.display = "inline-block";
+        const cell = this.controlRow.insertCell();
+        cell.colSpan = 1;
+        cell.appendChild(cc2);
+        cell.appendChild(cc);
+
+        const cc3 = document.createElement("button");
+        cc3.textContent = "Send";
+        cc3.onclick = function () {
+          this.setField(
+            this.controlRow.getElementsByTagName("input").field.value,
+            this.rateRow.getElementsByTagName("input").field.value,
+            this.rateRow.getElementsByTagName("select").fieldApproach.value
+          )
+        }.bind(this);
+        cell.appendChild(cc3);
+      }
       {
         const cc = document.createElement("div");
         cc.textContent = " K";
@@ -1547,11 +1402,11 @@ class DynaCool extends Instrument {
       }
       {
         const cc = document.createElement("div");
-        cc.textContent = " Oe";
+        cc.textContent = " Degrees";
         const cc2 = document.createElement("input");
         cc2.type = "number"
-        cc2.id = "field"
-        cc2.step = 1;
+        cc2.id = "rotator"
+        cc2.step = 0.1;
 
         cc2.style.display = "inline-block";
         cc.style.display = "inline-block";
@@ -1563,10 +1418,9 @@ class DynaCool extends Instrument {
         const cc3 = document.createElement("button");
         cc3.textContent = "Send";
         cc3.onclick = function () {
-          this.setField(
-            this.controlRow.getElementsByTagName("input").field.value,
-            this.rateRow.getElementsByTagName("input").field.value,
-            this.rateRow.getElementsByTagName("select").fieldApproach.value
+          this.setRotator(
+            this.controlRow.getElementsByTagName("input").rotator.value,
+            this.rateRow.getElementsByTagName("input").rotator.value,
           )
         }.bind(this);
         cell.appendChild(cc3);
@@ -1586,6 +1440,29 @@ class DynaCool extends Instrument {
         cell.appendChild(cc);
       }
       this.rateRow = tbody.insertRow();
+      {
+        const cc = document.createElement("div");
+        cc.textContent = " Oe/s";
+        const cc2 = document.createElement("input");
+        cc2.type = "number"
+        cc2.id = "field"
+        cc2.style.display = "inline-block";
+        cc.style.display = "inline-block";
+        const cell = this.rateRow.insertCell();
+        cell.colSpan = 1;
+        cell.appendChild(cc2);
+        cell.appendChild(cc);
+
+        const cc3 = document.createElement("select");
+        cc3.id = "fieldApproach";
+        for (const [key, value] of Object.entries(DynaCool.setFieldCodes)) {
+          const option = document.createElement("option");
+          option.value = key;
+          option.textContent = value;
+          cc3.appendChild(option);
+        }
+        cell.appendChild(cc3);
+      }
       {
         const cc = document.createElement("div");
         cc.textContent = " K/s";
@@ -1611,27 +1488,18 @@ class DynaCool extends Instrument {
       }
       {
         const cc = document.createElement("div");
-        cc.textContent = " Oe/s";
+        cc.textContent = " Degrees/s";
         const cc2 = document.createElement("input");
         cc2.type = "number"
-        cc2.id = "field"
+        cc2.id = "rotator"
         cc2.style.display = "inline-block";
         cc.style.display = "inline-block";
         const cell = this.rateRow.insertCell();
         cell.colSpan = 1;
         cell.appendChild(cc2);
         cell.appendChild(cc);
-
-        const cc3 = document.createElement("select");
-        cc3.id = "fieldApproach";
-        for (const [key, value] of Object.entries(DynaCool.setFieldCodes)) {
-          const option = document.createElement("option");
-          option.value = key;
-          option.textContent = value;
-          cc3.appendChild(option);
-        }
-        cell.appendChild(cc3);
       }
+
     }
     this.container.append(orgtable);
     this.updateText();
@@ -1820,6 +1688,8 @@ function poller() {
         }
       }
     }
+    instruments[3].readout["new1"] = false;
+    instruments[3].readout["new2"] = false;
     logs.push(lastLog);
   }
   for (const each of instruments) {

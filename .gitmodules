@@ -1,0 +1,3 @@
+[submodule "Serial-Gui/ni-visa"]
+	path = Serial-Gui/ni-visa
+	url = https://github.com/petertorelli/ni-visa.git
