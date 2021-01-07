@@ -14,6 +14,8 @@ const { title } = require("process");
 const { throws } = require("assert");
 const { dialog } = require('electron').remote;
 const Lock7270 = require("./lock.js");
+const Keith2400 = require("./keith2400.js");
+const Keith2231 = require("./keith2231.js");
 let AsyncFunction = Object.getPrototypeOf(async function(){}).constructor
 logs = [];
 logging = false;
@@ -1586,7 +1588,7 @@ function SaveLogs(fname) {
 let xaxis = document.createElement("select");
 let yaxis = document.createElement("ul");
 yaxis.style = "list-style: none; padding-inline-start:10px;"
-let instruments = [new TimeKeeper("tk"), new NVmeter2182A("nv"), new RF845("rf"), new Lock7270("lockin"), new DynaCool("ppms"), new VSource6221A("6221")];
+let instruments = [new TimeKeeper("tk"), new NVmeter2182A("nv"), new RF845("rf"), new Lock7270("lockin"), new DynaCool("ppms"), new VSource6221A("6221"), new Keith2400("2400"), new Keith2231("2231")];
 for (const each of instruments) {
   document.body.appendChild(each.html);
   for (const [key, value] of Object.entries(each.readout)) {
@@ -1688,15 +1690,18 @@ function poller() {
         }
       }
     }
-    instruments[3].readout["new1"] = false;
-    instruments[3].readout["new2"] = false;
     logs.push(lastLog);
   }
   for (const each of instruments) {
+    try {
     each.poll();
+    } catch(err){
+    console.log("Error on " + each._name + ": " + err)
+    }
   }
   setTimeout(poller, 200);
 }
+
 {
   const plotdiv = document.createElement("div");
   plotdiv.id = "PlotDiv";

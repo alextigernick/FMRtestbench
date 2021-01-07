@@ -49,7 +49,7 @@ class QDInstrument:
         return err
         
     def get_position(self):
-        """Gets and returns field info as (MultiVu error, field, status)"""
+        """Gets and returns rotator info as (MultiVu error, position, status)"""
         arg0 = win32com.client.VARIANT(pythoncom.VT_BYREF | pythoncom.VT_R8, 0.0)
         arg1 = win32com.client.VARIANT(pythoncom.VT_BYREF | pythoncom.VT_I4, 0)
         err = self._mvu.GetPosition("Horizontal Rotator",arg0, arg1)

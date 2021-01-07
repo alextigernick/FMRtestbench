@@ -30,7 +30,8 @@ class QDCommandParser:
         retT = self._instrument.get_temperature()
         retF = self._instrument.get_field()
         retC = self._instrument.get_chamber()
-        return "ALL?, {0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}".format(*retT,*retF,*retC)
+        retR = self._instrument.get_position()
+        return "ALL?, {0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10}".format(*(retT+retF+retC+retR))
         
     def set_all(self,arg_string):
         print("set all not implemented. ARGS: " +arg_string)
@@ -38,7 +39,7 @@ class QDCommandParser:
 		
 	def get_rotator(self):
 	    rp = self._instrument.get_position()
-	    return "POS?, {0}, {1}".format(*rp) 
+	    return "POS?, {0}, {1}, {2}".format(*rp) 
 	def set_rotator(self,arg_string):
 	    try:
 	        pos,speed = arg_string.split(",")
