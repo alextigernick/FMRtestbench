@@ -27,7 +27,7 @@ class Kieth2231 extends Instrument {
   }
   rawWrite(message) {
     if (this.inst) {
-      visa.viWrite(this.inst,message);
+      visa.viWrite(this.inst,message+"\n");
     }
   }
   set(chan,voltage,current){
@@ -65,9 +65,11 @@ class Kieth2231 extends Instrument {
       if (!this.inst) {
         throw new Error('No device found');
       }
+      this.viWrite(this.inst,"SYST:REM\n");
       this.serialRow.getElementsByTagName("button").connect.textContent = "Disconnect";
     }
     else {
+      this.viWrite(this.inst,"SYST:LOC\n");
       visa.viClose(this.inst);
       this.inst = undefined;
       this.serialRow.getElementsByTagName("button").connect.textContent = "Connect";

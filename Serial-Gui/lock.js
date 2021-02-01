@@ -22,7 +22,7 @@ class Lock7270 extends Instrument {
     if (this.inst != undefined) {
       this.readout["status"] = 0;
       this.readout["overload"] = 0;
-      if (this.channels.value == 2) {
+      if (this.channels.value != 0) {
           this.handleData(visa.vhQuery(this.inst, "XY1.\0"), 1);
           this.handleData(visa.vhQuery(this.inst, "XY2.\0"), 2);
       }
@@ -38,32 +38,72 @@ class Lock7270 extends Instrument {
         this.readout["status"] |= data.charCodeAt(data.length-2);
         this.readout["overload"] |= data.charCodeAt(data.length-1);
         var parsed = data.slice(0, data.length - 3);
-        parsed = parsed.split(",");
-        var x = parsed[0].replace(/(\r\n|\n|\r)/gm, "");
-        var y = parsed[1].replace(/(\r\n|\n|\r)/gm, "");
-        if (req == 1) {
-          this.readout["x1"] = x;
-          this.readout["y1"] = y;
-          this.readout["mag1"] = Math.sqrt(x * x + y * y);
-          this.readout["new1"] = true;
-          //this.readout["phase"] = 180 * Math.atan2(y, x) / 3.1415;
-        }
-        else {
-          this.readout["x2"] = x;
-          this.readout["y2"] = y;
-          this.readout["mag2"] = Math.sqrt(x * x + y * y);
-          this.readout["new2"] = true;
-          //this.readout["phase2"] = 180 * Math.atan2(y, x) / 3.1415;
-        }
-        //var status = data.slice(data.length-2,data.length-1);
-        //var overload = data.slice(data.length-1,data.length);
-        this.updateText();
+      }
+      var parsed = data;
+      parsed = parsed.split(",");
+      var x = parsed[0].replace(/(\r\n|\n|\r)/gm, "");
+      var y = parsed[1].replace(/(\r\n|\n|\r)/gm, "");
+      if (req == 1) {
+        this.readout["x1"] = x;
+        this.readout["y1"] = y;
+        this.readout["mag1"] = Math.sqrt(x * x + y * y);
+        this.readout["new1"] = true;
+        //this.readout["phase"] = 180 * Math.atan2(y, x) / 3.1415;
       }
       else {
-        console.log("Packet is incorrectly terminated");
+        this.readout["x2"] = x;
+        this.readout["y2"] = y;
+        this.readout["mag2"] = Math.sqrt(x * x + y * y);
+        this.readout["new2"] = true;
+        //this.readout["phase2"] = 180 * Math.atan2(y, x) / 3.1415;
       }
+      //var status = data.slice(data.length-2,data.length-1);
+      //var overload = data.slice(data.length-1,data.length);
+      this.updateText();
     }
     else console.log(data);
+  }
+  rawWrite(message){
+    if (this.inst != undefined) {
+      visa.viWrite(this.inst,message +"\0");
+    }
+    else{
+      console.log(message);
+    }
+  }
+  setSens(chan, value){
+    console.log(chan);
+    console.log(value);
+    if (this.channels.value == 0){
+      if (chan == 1){
+        if (value == "AUTO"){
+          this.rawWrite("AS");
+        }
+        else{
+          this.rawWrite("SEN "+value);
+        }
+      }
+    }
+    else{
+      if (value == "AUTO"){
+        this.rawWrite("AS"+chan);
+      }
+      else{
+        this.rawWrite("SEN"+chan+" "+value);
+      }
+    }
+  }
+  setRef(chan, value){
+    console.log(chan);
+    console.log(value);
+    if (this.channels.value != 2){
+      if (chan == 1){
+          this.rawWrite("IE "+value);
+      }
+    }
+    else{
+        this.rawWrite("IE"+chan +" "+value);
+    }
   }
   updateText() {
     this.readoutRow.getElementsByTagName("p").mag.textContent = this.readout["x1"] + " volts";
@@ -71,23 +111,18 @@ class Lock7270 extends Instrument {
     this.readoutRow2.getElementsByTagName("p").mag.textContent = this.readout["x2"] + " volts";
     this.readoutRow2.getElementsByTagName("p").phase.textContent = this.readout["y2"] + " volts";
   }
+  refresh() {
+    visa.vhListResources(VisaSession).some(address => {
+      var opt = document.createElement('option');
+      opt.value = address;
+      opt.innerHTML = address;
+      this.serialRow.getElementsByTagName("select").portselect.appendChild(opt);
+    })
+  }
   connect() {
     if (!this.inst) {
-      let vi;
-      let resp;
       let status;
-      visa.vhListResources(VisaSession).some(address => {
-        [status, vi] = visa.viOpen(VisaSession, address);
-        resp = visa.vhQuery(vi, 'ID\0');
-        debug("Address " + address + " -> " + resp.trim());
-        if (resp.match(/7270/)) {
-          this.inst = vi;
-          debug(`Using the first 7270 found at ${address}`);
-          return true;
-        }
-        visa.viClose(vi);
-        return false;
-      });
+      [status,this.inst] = visa.viOpen(VisaSession,this.serialRow.getElementsByTagName("select").portselect.value);
       if (!this.inst) {
         throw new Error('No device found');
       }
@@ -117,27 +152,39 @@ class Lock7270 extends Instrument {
       cell.colSpan = 2;
       cell.appendChild(nameplate);
 
-      const cc0 = document.createElement("div");
-      const cc = document.createElement("div");
-      cc.textContent = "channels";
-      this.channels = document.createElement("input");
-      this.channels.type = "number"
-      this.channels.max = 2;
-      this.channels.min = 1;
-      this.channels.step = 1;
-      this.channels.value = 1;
 
-      this.channels.style.display = "inline-block";
-      cc.style.display = "inline-block";
+      
+      this.channels = document.createElement("select");
+      var opts = {
+        "0":"Single/Virtual Reference",
+        "1":"Dual Harmonic mode",
+        "2":"Dual Reference mode"
+      }
+      for (var option in opts){
+        var opt = document.createElement('option');
+        opt.value = option;
+        opt.innerHTML = opts[option];
+        this.channels.appendChild(opt);
+      }
       const cell2 = row.insertCell();
-      cell2.colSpan = 1;
-      cc0.appendChild(this.channels);
-      cc0.appendChild(cc);
-      cell2.appendChild(cc0);
+      this.channels.onchange = function(){this.rawWrite("REFMODE "+this.channels.value)}.bind(this);
+      cell2.appendChild(this.channels);
     }
     const tbody = orgtable.createTBody();
     {
       this.serialRow = tbody.insertRow();
+      {
+        const cc = document.createElement("select");
+        cc.id = "portselect";
+        const cell = this.serialRow.insertCell();
+        cell.appendChild(cc);
+
+        const cc2 = document.createElement("button");
+        cc2.textContent = "↻";
+        cc2.id = "refresh";
+        cc2.onclick = this.refresh.bind(this);
+        cell.appendChild(cc2);
+      }
       {
         const cc = document.createElement("button");
         cc.textContent = "Connect";
@@ -166,6 +213,67 @@ class Lock7270 extends Instrument {
         const cell = this.readoutRow.insertCell();
         cell.appendChild(cc);
       }
+      {
+        var cc = document.createElement("select");
+        cc.id = "sens";
+        var opts = {
+          "1":"2 nV",
+          "2":"5 nV",
+          "3":"10 nV",
+          "4":"20 nV",
+          "5":"50 nV",
+          "6":"100 nV",
+          "7":"200 nV",
+          "8":"500 nV",
+          "9":"1 uV",
+          "10":"2 uV",
+          "11":"5 uV",
+          "12":"10 uV",
+          "13":"20 uV",
+          "14":"50 uV",
+          "15":"100u V",
+          "16":"200 uV",
+          "17":"500 uV",
+          "18":"1 mV",
+          "19":"2 mV",
+          "20":"5 mV",
+          "21":"10 mV",
+          "22":"20 mV",
+          "23":"50 mV",
+          "24":"100 mV",
+          "25":"200 mV",
+          "26":"500 mV",
+          "27":"1 V",
+          "AUTO":"AUTO"
+        }
+        for (var option in opts){
+          var opt = document.createElement('option');
+          opt.value = option;
+          opt.innerHTML = opts[option];
+          cc.appendChild(opt);
+        }
+        const cell = this.readoutRow.insertCell();
+        cc.onchange = function(){this.setSens(1,this.readoutRow.getElementsByTagName("select").sens.options[this.readoutRow.getElementsByTagName("select").sens.selectedIndex].value)}.bind(this);
+        cell.appendChild(cc);
+      }
+      {
+        var cc = document.createElement("select");
+        cc.id = "ref";
+        var opts = {
+          "0":"Internal",
+          "1":"External Rear Panel",
+          "2":"External Front Panel"
+        }
+        for (var option in opts){
+          var opt = document.createElement('option');
+          opt.value = option;
+          opt.innerHTML = opts[option];
+          cc.appendChild(opt);
+        }
+        const cell = this.readoutRow.insertCell();
+        cc.onchange = function(){this.setRef(1,this.readoutRow.getElementsByTagName("select").ref.options[this.readoutRow.getElementsByTagName("select").ref.selectedIndex].value)}.bind(this);
+        cell.appendChild(cc);
+      }
       this.readoutRow2 = tbody.insertRow();
       {
         const cc = document.createElement("p");
@@ -183,6 +291,67 @@ class Lock7270 extends Instrument {
         const cc = document.createElement("p");
         cc.id = "phase";
         const cell = this.readoutRow2.insertCell();
+        cell.appendChild(cc);
+      }
+      {
+        var cc = document.createElement("select");
+        cc.id = "sens";
+        var opts = {
+          "1":"2 nV",
+          "2":"5 nV",
+          "3":"10 nV",
+          "4":"20 nV",
+          "5":"50 nV",
+          "6":"100 nV",
+          "7":"200 nV",
+          "8":"500 nV",
+          "9":"1 uV",
+          "10":"2 uV",
+          "11":"5 uV",
+          "12":"10 uV",
+          "13":"20 uV",
+          "14":"50 uV",
+          "15":"100u V",
+          "16":"200 uV",
+          "17":"500 uV",
+          "18":"1 mV",
+          "19":"2 mV",
+          "20":"5 mV",
+          "21":"10 mV",
+          "22":"20 mV",
+          "23":"50 mV",
+          "24":"100 mV",
+          "25":"200 mV",
+          "26":"500 mV",
+          "27":"1 V",
+          "AUTO":"AUTO"
+        }
+        for (var option in opts){
+          var opt = document.createElement('option');
+          opt.value = option;
+          opt.innerHTML = opts[option];
+          cc.appendChild(opt);
+        }
+        const cell = this.readoutRow2.insertCell();
+        cc.onchange = function(){this.setSens(2,this.readoutRow.getElementsByTagName("select").sens.options[this.readoutRow.getElementsByTagName("select").sens.selectedIndex].value)}.bind(this);
+        cell.appendChild(cc);
+      }
+      {
+        var cc = document.createElement("select");
+        cc.id = "ref";
+        var opts = {
+          "0":"Internal",
+          "1":"External Rear Panel",
+          "2":"External Front Panel"
+        }
+        for (var option in opts){
+          var opt = document.createElement('option');
+          opt.value = option;
+          opt.innerHTML = opts[option];
+          cc.appendChild(opt);
+        }
+        const cell = this.readoutRow2.insertCell();
+        cc.onchange = function(){this.setRef(2,this.readoutRow2.getElementsByTagName("select").ref.options[this.readoutRow2.getElementsByTagName("select").ref.selectedIndex].value)}.bind(this);
         cell.appendChild(cc);
       }
 

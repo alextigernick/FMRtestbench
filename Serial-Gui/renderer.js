@@ -1588,7 +1588,7 @@ function SaveLogs(fname) {
 let xaxis = document.createElement("select");
 let yaxis = document.createElement("ul");
 yaxis.style = "list-style: none; padding-inline-start:10px;"
-let instruments = [new TimeKeeper("tk"), new NVmeter2182A("nv"), new RF845("rf"), new Lock7270("lockin"), new DynaCool("ppms"), new VSource6221A("6221"), new Keith2400("2400"), new Keith2231("2231")];
+let instruments = [new TimeKeeper("tk"), new NVmeter2182A("nv"), new RF845("rf"), new Lock7270("lock1"),new Lock7270("lock2"), new DynaCool("ppms"), new VSource6221A("6221"), new Keith2400("2400"), new Keith2231("2231")];
 for (const each of instruments) {
   document.body.appendChild(each.html);
   for (const [key, value] of Object.entries(each.readout)) {
