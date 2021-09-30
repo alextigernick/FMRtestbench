@@ -34,12 +34,12 @@ class Lock7270 extends Instrument {
   }
   handleData(data, req) {
     if (data.length > 3) {
+      var parsed = data;
       if (data.charCodeAt(data.length-3) == 0) {
         this.readout["status"] |= data.charCodeAt(data.length-2);
         this.readout["overload"] |= data.charCodeAt(data.length-1);
-        var parsed = data.slice(0, data.length - 3);
+        parsed = data.slice(0, data.length - 3);
       }
-      var parsed = data;
       parsed = parsed.split(",");
       var x = parsed[0].replace(/(\r\n|\n|\r)/gm, "");
       var y = parsed[1].replace(/(\r\n|\n|\r)/gm, "");

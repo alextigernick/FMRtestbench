@@ -1,45 +1,28 @@
-# electron-quick-start
+# FMR TESTBENCH
 
-**Clone and run for a quick way to see Electron in action.**
+This is a a GUI used to interface with a number of instruments for the SQUID lab in the Auburn Elecetrical Engineering department.
 
-This is a minimal Electron application based on the [Quick Start Guide](https://electronjs.org/docs/tutorial/quick-start) within the Electron documentation.
 
-**Use this app along with the [Electron API Demos](https://electronjs.org/#get-started) app for API code examples to help you get started.**
+The code is in various states of disrepair due to how it was built one experiment at a time and frequently patched in time constrained circumstances. The core code is [here](./renderer.js)
 
-A basic Electron application needs just these files:
+## Initial setup
 
-- `package.json` - Points to the app's main file and lists its details and dependencies.
-- `main.js` - Starts the app and creates a browser window to render HTML. This is the app's **main process**.
-- `index.html` - A web page to render. This is the app's **renderer process**.
+Install Node.js and run "npm install". You will likely have to use [electron-rebuild](https://github.com/electron/electron-rebuild) to recompile quite a few node modules to get electron(the embedded chrom instance) to launch. The serial module is particularlly troublesome in this regard but google has your answers.
 
-You can learn more about each of these components within the [Quick Start Guide](https://electronjs.org/docs/tutorial/quick-start).
+## Instrument dependent drivers
 
-## To Use
+Some instruments need [VISA](https://www.ni.com/en-us/support/downloads/drivers/download.ni-visa.html#409839). Some of those will also need additional drivers from the manufacturer websites.
 
-To clone and run this repository you'll need [Git](https://git-scm.com) and [Node.js](https://nodejs.org/en/download/) (which comes with [npm](http://npmjs.com)) installed on your computer. From your command line:
+In some rare cases where you need RAW usb read/write we've used [Zadig](https://zadig.akeo.ie/) to install those drivers
 
-```bash
-# Clone this repository
-git clone https://github.com/electron/electron-quick-start
-# Go into the repository
-cd electron-quick-start
-# Install dependencies
-npm install
-# Run the app
+The PPMS is unique in that it is controlled via python [server](../QD_Socket_Server).
+
+## Running it
+
+```
 npm start
 ```
+## Deploying
 
-Note: If you're using Linux Bash for Windows, [see this guide](https://www.howtogeek.com/261575/how-to-run-graphical-linux-desktop-applications-from-windows-10s-bash-shell/) or use `node` from the command prompt.
+Deployed instances are packaged with [electron-packager](https://github.com/electron/electron-packager). This makes sure that all the dependencies are packaged up and means the host computers doesn't need Node.
 
-## Resources for Learning Electron
-
-- [electronjs.org/docs](https://electronjs.org/docs) - all of Electron's documentation
-- [electronjs.org/community#boilerplates](https://electronjs.org/community#boilerplates) - sample starter apps created by the community
-- [electron/electron-quick-start](https://github.com/electron/electron-quick-start) - a very basic starter Electron app
-- [electron/simple-samples](https://github.com/electron/simple-samples) - small applications with ideas for taking them further
-- [electron/electron-api-demos](https://github.com/electron/electron-api-demos) - an Electron app that teaches you how to use Electron
-- [hokein/electron-sample-apps](https://github.com/hokein/electron-sample-apps) - small demo apps for the various Electron APIs
-
-## License
-
-[CC0 1.0 (Public Domain)](LICENSE.md)

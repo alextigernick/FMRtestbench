@@ -457,7 +457,7 @@ class PowerHAP03_30D extends Instrument {
           else {
             let parser = new ByteLength({ length: 1 })
             this.port.pipe(parser)
-            parser.on('data', (line => this.parseLine(line).bind(this)));
+            parser.on('data', (line => this.parseLine(line)).bind(this));
 
             this.port.on('close', function (err) {
               this.connected = false;
@@ -493,6 +493,7 @@ class PowerHAP03_30D extends Instrument {
       this.readoutRow.getElementsByTagName("button").on.style.backgroundColor = "transparent";
     }
   }
+  
   rawWrite(com, arg) {
     if (com == "iset") {
       if (Math.sign(this.readout["current"]) != Math.sign(arg)) {
@@ -560,7 +561,7 @@ class PowerHAP03_30D extends Instrument {
     }
     hdr[lengths[com] + 4] = hdr.slice(1, lengths[com] + 4).reduce((a, b) => a + b, 0) & 0xFF
     this.port.write(hdr, this.writeErrorHandler.bind(this));
-    updateText();
+    this.updateText();
   }
   get html() {
     if (typeof this.container != "undefined") {
@@ -662,7 +663,7 @@ class PowerHAP03_30D extends Instrument {
         const cc = document.createElement("button");
         cc.textContent = "On";
         cc.id = "on";
-        cc.onclick = function () { this.rawWrite(this.on ? "off" : "on") }.bind(this);
+        cc.onclick = function () { this.rawWrite(this.readout["on"] ? "off" : "on") }.bind(this);
         const cell = this.readoutRow.insertCell();
         cell.appendChild(cc);
       }
@@ -670,6 +671,167 @@ class PowerHAP03_30D extends Instrument {
     this.container.append(orgtable);
     this.refreshPorts();
     this.updateText();
+    return this.container
+  }
+}
+class Bop2020 extends Instrument {
+  constructor(name) {
+    super(name);
+    this.connected = false;
+    this.readout = {
+      "current": 0,
+    };
+  }
+
+  parseLine(line) {
+    console.log(this._name + " " + line);
+  }
+  refreshPorts() {
+    serialport.list(function (err, portl) {
+      portl.forEach(function (port) {
+        var opt = document.createElement('option');
+        opt.value = port.comName;
+        opt.innerHTML = port.comName + " - " + port.manufacturer;
+        this.serialRow.getElementsByTagName("select").portselect.appendChild(opt);
+      }.bind(this)
+      );
+    }.bind(this));
+  }
+  writeErrorHandler(err) {
+    if (err) {
+      console.log(err);
+    }
+  }
+  connect() {
+    if (!this.connected) {
+      let select = this.serialRow.getElementsByTagName("select").portselect;
+      let baud = this.serialRow.getElementsByTagName("select").portbaud;
+
+      this.port = new serialport(select.options[select.selectedIndex].value, { baudRate: parseInt(baud.options[baud.selectedIndex].value) },
+        function (err) {
+          if (err) {
+            return console.log('Error: ', err.message)
+          }
+          else {
+            let parser = new ByteLength({ length: 1 })
+            this.port.pipe(parser)
+            parser.on('data', (line => this.parseLine(line)).bind(this));
+
+            this.port.on('close', function (err) {
+              this.connected = false;
+              this.serialRow.getElementsByTagName("button").refresh.disabled = this.connected;
+              this.serialRow.getElementsByTagName("button").connect.textContent = this.connected ? "Disconnect" : "Connect";
+              if (err) {
+                console.log(err);
+              }
+            }.bind(this));
+            this.set(0.0);
+
+            this.connected = true;
+            this.serialRow.getElementsByTagName("button").refresh.disabled = this.connected;
+            this.serialRow.getElementsByTagName("button").connect.textContent = this.connected ? "Disconnect" : "Connect";
+          }
+        }.bind(this)
+      );
+    }
+    else {
+      this.port.close();
+    }
+  }
+  set(arg){
+    arg = parseFloat(arg);
+    if(Math.abs(arg)<=20){
+      this.readout["current"] = arg;
+      arg = ((arg+20)/40.0)*65535;
+      let num1 = Math.round(arg/256);
+      let num2 = Math.round(arg%256);
+      console.log(num1+","+num2+"\n");
+      this.port.write(num1+","+num2+"\n",this.writeErrorHandler.bind(this));
+    }
+    else{
+      console.log(this.name += "arg out of range")
+    }
+  }
+  get html() {
+    if (typeof this.container != "undefined") {
+      return this.container
+    }
+    this.container = document.createElement("div");
+    this.container.className = "instrument";
+
+    const orgtable = document.createElement("table");
+    const thead = orgtable.createTHead();
+    {
+      const row = thead.insertRow();
+      const nameplate = document.createElement("b");
+      nameplate.textContent = this._name;
+      const cell = row.insertCell();
+      cell.colSpan = 3;
+      cell.appendChild(nameplate);
+    }
+    const tbody = orgtable.createTBody();
+    {
+      this.serialRow = tbody.insertRow();
+      {
+        const cc = document.createElement("select");
+        cc.id = "portselect";
+        const cell = this.serialRow.insertCell();
+        cell.appendChild(cc);
+
+        const cc2 = document.createElement("button");
+        cc2.textContent = "↻";
+        cc2.id = "refresh";
+        cc2.onclick = this.refreshPorts.bind(this);
+        cell.appendChild(cc2);
+      }
+      {
+        const cc = document.createElement("select");
+        cc.id = "portbaud";
+        const opts = [9600];
+        let rate;
+        for (rate of opts) {
+          const option = document.createElement("option");
+          option.value = rate;
+          option.textContent = rate;
+          if (rate == 19200) {
+            option.selected = true;
+          }
+          cc.appendChild(option);
+        }
+        const cell = this.serialRow.insertCell();
+        cell.appendChild(cc);
+      }
+      {
+        const cc = document.createElement("button");
+        cc.textContent = "Connect";
+        cc.id = "connect";
+        cc.onclick = this.connect.bind(this);
+        const cell = this.serialRow.insertCell();
+        cell.appendChild(cc);
+      }
+      this.readoutRow = tbody.insertRow();
+      {
+        const cc = document.createElement("div");
+        cc.textContent = "amps";
+        const cc2 = document.createElement("input");
+        cc2.type = "number"
+        cc2.id = "amps"
+        cc2.max = 20;
+        cc2.min = -20;
+        cc2.step = 0.0001;
+        cc2.addEventListener("change", function () { this.set(this.readoutRow.getElementsByTagName("input").amps.value) }.bind(this));
+
+        cc2.value = 0;
+        cc2.style.display = "inline-block";
+        cc.style.display = "inline-block";
+        const cell = this.readoutRow.insertCell();
+        cell.colSpan = 1;
+        cell.appendChild(cc2);
+        cell.appendChild(cc);
+      }
+    }
+    this.container.append(orgtable);
+    this.refreshPorts();
     return this.container
   }
 }
@@ -870,7 +1032,6 @@ class RF845 extends Instrument {
     return this.container
   }
 }
-
 class Lock7265 extends Instrument {
   constructor(name) {
     super(name);
@@ -1508,6 +1669,7 @@ class DynaCool extends Instrument {
     return this.container
   }
 }
+
 function DisableOptions() {
   for (const each of loggers.getElementsByTagName("input")) {
     if (each.checked) {
@@ -1588,7 +1750,7 @@ function SaveLogs(fname) {
 let xaxis = document.createElement("select");
 let yaxis = document.createElement("ul");
 yaxis.style = "list-style: none; padding-inline-start:10px;"
-let instruments = [new TimeKeeper("tk"), new NVmeter2182A("nv"), new RF845("rf"), new Lock7270("lock1"),new Lock7270("lock2"), new DynaCool("ppms"), new VSource6221A("6221"), new Keith2400("2400"), new Keith2231("2231")];
+let instruments = [new TimeKeeper("tk"), new NVmeter2182A("nv"), new RF845("rf"), new Lock7270("lock1"),new Lock7270("lock2"), new DynaCool("ppms"), new VSource6221A("6221"), new Keith2400("2400"), new Keith2231("2231"), new PowerHAP03_30D("Hap03_30d"), new Bop2020("Bop2020")];
 for (const each of instruments) {
   document.body.appendChild(each.html);
   for (const [key, value] of Object.entries(each.readout)) {
@@ -1614,7 +1776,10 @@ let loggers = yaxis.cloneNode(true);
 for (const each of loggers.getElementsByTagName("input")) {
   each.onclick = DisableOptions;
 }
+const __org_parent = document.createElement("div");
+__org_parent.className = "instrument"
 const orgtable = document.createElement("table");
+__org_parent.appendChild(orgtable)
 {
   const row = orgtable.insertRow();
   {
@@ -1674,8 +1839,13 @@ const orgtable = document.createElement("table");
     cell.appendChild(loggers);
   }
 }
-
-document.body.appendChild(orgtable);
+document.body.appendChild(__org_parent);
+{
+  const plotdiv = document.createElement("div");
+  plotdiv.id = "PlotDiv";
+  plotdiv.className = "instrument";
+  document.body.appendChild(plotdiv);
+}
 function poller() {
   if (logging) {
     lastLog = [];
@@ -1702,12 +1872,9 @@ function poller() {
   setTimeout(poller, 200);
 }
 
-{
-  const plotdiv = document.createElement("div");
-  plotdiv.id = "PlotDiv";
-  document.body.appendChild(plotdiv);
-}
+
 const codearea = document.createElement("TEXTAREA");
+codearea.className = "instrument";
 {
   const codediv = document.createElement("div");
   const runButton = document.createElement("button");
