@@ -11,7 +11,7 @@ Install Node.js and run "npm install". You will likely have to use [electron-reb
 
 ## Instrument dependent drivers
 
-Some instruments need [VISA](https://www.ni.com/en-us/support/downloads/drivers/download.ni-visa.html#409839). Some of those will also need additional drivers from the manufacturer websites.
+Some instruments need [VISA](https://www.ni.com/en-us/support/downloads/drivers/download.ni-visa.html#305862). Some of those will also need additional drivers from the manufacturer websites.
 
 In some rare cases where you need RAW usb read/write we've used [Zadig](https://zadig.akeo.ie/) to install those drivers
 
