@@ -1,3 +1,3 @@
 # FMR TESTBENCH
 
-See [Serial-Gui/README.MD](Serial-Gui/README.MD)
+See [Serial-Gui/README.md](Serial-Gui/README.md)
